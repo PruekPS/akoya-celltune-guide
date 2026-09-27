@@ -1,0 +1,23 @@
+# Results and data never belong in this repository
+results*/
+data/
+*.qptiff
+*.qptif
+*.tif
+*.tiff
+*.npy
+*.npz
+logs/
+
+# Secrets — the DeepCell token lives in ~/.config, never here
+*token*
+*.local.md
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+._*

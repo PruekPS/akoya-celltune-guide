@@ -1,0 +1,30 @@
+marker,aliases,role,segmentation,status,notes
+DAPI,DNA;Hoechst,nuclear,nuclear,ok,
+CD45,PTPRC,lineage,membrane,ok,"membrane composite: proposal, tested in stage 02"
+CD3e,CD3;CD3E,lineage,,ok,
+CD4,,lineage,,ok,
+CD8,CD8a;CD8A,lineage,,ok,
+FOXP3,FoxP3,state,,ok,scored within CD4 T cells
+CD44,,state,membrane,ok,broad membrane signal; membrane composite proposal
+B220,CD45R;CD45R/B220;B220/CD45R,lineage,,ok,clone RA3-6B2 confirmed by user 2026-09-11 (flyer label 'naive T cell' is wrong for this clone)
+CD20,MS4A1,lineage,,ok,
+Vimentin,VIM,structural,membrane,ok,cytoplasm fill for stromal/tumor cells in the composite; proposal
+Col1A1,COL1A1;Collagen1;CollagenI,structural,,ok,
+Caveolin,Caveolin-1;CAV1,structural,membrane,ok,membrane composite proposal
+PanCK,panCK;Pan-Cytokeratin;Cytokeratin,lineage,,ok,epithelial; in lung metastases marks normal airway/alveolar epithelium
+Ki67,Ki-67;MKI67,state,,ok,
+CD31,PECAM1,lineage,membrane,ok,membrane composite proposal
+CD36,,lineage,,ok,
+Ter119,TER-119;Ly76,lineage,,ok,erythroid
+CD68,,lineage,,ok,
+CD206,MRC1,state,,ok,
+F4/80,F480;Adgre1;EMR1,lineage,,ok,
+CD11c,ITGAX,lineage,,failed,"panel antibody not staining (user, 2026-09-11); custom conjugate pending"
+Ly6g,Ly-6G,lineage,,ok,
+FCRg,FcRg;FCRgamma;FcERG;Fcer1g,lineage,,ok,
+Iba1,AIF1,lineage,,ok,
+S100A9,,lineage,,ok,
+PD-1,PD1;CD279;Pdcd1,state,,unconfirmed,add-in; confirm name/clone from the real panel
+PD-L1,PDL1;CD274,state,,unconfirmed,add-in; confirm name/clone from the real panel
+VSIG4,,state,,unconfirmed,add-in; confirm name/clone from the real panel
+MHC,MHC-I;MHC-II;MHCII;I-A/I-E;H-2Kb,state,,unconfirmed,add-in; class I or II not yet confirmed

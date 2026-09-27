@@ -1,0 +1,56 @@
+# CellSAM environment for stage 02 (the default whole-cell method). BUILT, NEVER RUN.
+#
+# CellSAM (Marks/Israel et al., Nat Methods 2025, 10.1038/s41592-025-02879-w) is
+# pure PyTorch, so unlike Mesmer it is not stuck on TensorFlow 2.8 and runs on
+# current GPUs. Model weights download from users.deepcell.org, so the same
+# DEEPCELL_ACCESS_TOKEN used for Mesmer is required.
+#
+# CUDA 12.8 wheels so the environment works on every GPU here: L4 (sm_89) as
+# well as the Blackwell cards (B200, RTX PRO 6000).
+#
+# StarDist is included so one job runs nuclei and CellSAM on identical inputs.
+# StarDist needs TensorFlow; TF 2.15 is the last release with Keras 2, which
+# csbdeep expects. TF and Torch coexist here but TF stays on CPU (the GPU is
+# for CellSAM), which is set in the job script.
+#
+# Build on a compute node, never the login node:
+#   sbatch --account=<ACCOUNT> --qos=<QOS> pipeline/setup_cellsam_env.slurm
+#
+# It also builds on an Apple Silicon Mac (torch uses the Metal backend, MPS),
+# which is currently the only GPU available to this project: as of 2026-09-11
+# the <GROUP> QoS has gres/gpu=0, so every GPU job on HiPerGator is rejected
+# with QOSGrpGRES, whatever the request syntax.
+#
+# On macOS, two runtimes both ship libomp and torch aborts on import unless:
+#   export KMP_DUPLICATE_LIB_OK=TRUE
+# The scripts set this themselves; it is only needed for this environment.
+name: akoya-cellsam
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy=1.26        # TF 2.15 needs numpy < 2
+  - scipy>=1.11
+  - pandas>=2.1
+  - pyarrow
+  - scikit-image>=0.22
+  - scikit-learn
+  - matplotlib>=3.8
+  - tifffile>=2024.2
+  - imagecodecs
+  - zarr>=3
+  - numba
+  - pyyaml
+  - tqdm
+  - pip
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu128
+      - torch
+      - torchvision
+      - dask[distributed]
+      - dask-image
+      - opencv-python-headless
+      - git+https://github.com/facebookresearch/segment-anything.git
+      - git+https://github.com/vanvalenlab/cellSAM.git
+      - tensorflow==2.15.1
+      - stardist==0.9.2

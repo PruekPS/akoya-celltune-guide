@@ -1,0 +1,2 @@
+sample_id,image,species,panel,he_image,condition,notes
+MySlide,/blue/GROUP/USER/Akoya_data/MySlide.qptiff,mouse,panels/my_panel.csv,,treated,"First test slide. Replace every value in this row with your own."
