@@ -146,17 +146,18 @@ python scripts/02_segment.py --help
 
 ---
 
-## Turning the nested-label merge off
+## Turning the nested-label merge on
 
-It is on by default. To skip it:
+It is **off** by default, because it measured slightly worse than no merge
+against hand labels and costs hours (page 6). To switch it on:
 
 ```bash
-MERGE_NESTED=0 ACCOUNT=<GROUP> QOS=<GROUP> \
+MERGE_NESTED=1 ACCOUNT=<GROUP> QOS=<GROUP> \
     pipeline/run_stage_02_split.sh samples/my_slide.csv results
 ```
 
-It is the slowest part after CellSAM — single-threaded and memory-hungry — so
-turning it off is a reasonable first test on a new slide.
+Only worth doing if you have measured it on your own tissue and it helps there.
+It is single-threaded and by far the slowest part of stage 02.
 
 ---
 

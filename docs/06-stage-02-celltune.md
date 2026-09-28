@@ -9,8 +9,10 @@ Two methods run:
 - **CellSAM** finds whole cells directly from the image. This is the slow part
   and the one that benefits from a GPU.
 
-Optionally a **nested-label merge** runs afterwards: CellSAM sometimes draws
-two outlines for one cell, and this folds the inner one into the outer.
+A **nested-label merge** is available but **off by default**. CellSAM does
+sometimes draw two outlines for one cell, and the merge folds the inner into
+the outer — but measured against hand-clicked nuclei it made the result
+slightly worse, and it is very slow. See "The nested-label merge" below.
 
 ---
 
@@ -99,6 +101,30 @@ CELLSAM_BLOCK=512 ACCOUNT=<GROUP> QOS=<GROUP> \
 it changes, so results are not directly comparable across different values.
 
 ---
+
+## The nested-label merge, and why it is off
+
+CellSAM occasionally returns two overlapping outlines for one cell. The merge
+folds the smaller into the larger when most of it sits inside the larger one
+grown by a few micrometres. That sounds like a clear win. It was measured, on
+one slide, against 734 hand-clicked nuclei in two fields:
+
+| | recall | precision | F1 |
+|---|---|---|---|
+| **No merge** | 0.830 | 0.686 | **0.751** |
+| Merge | 0.798 | 0.689 | 0.739 |
+
+It folded 7.7–11% of labels and came out **slightly worse**, in both fields and
+at both matching radii. Recall falls about 0.03 while precision gains 0.003 —
+so most of what it folds away are real cells absorbed into a neighbour, not the
+duplicate outlines it was written to remove.
+
+It is also slow: **43–51 minutes for one 1-megapixel crop**, single-threaded, on
+a slide of over 1,000 megapixels.
+
+Switch it on with `MERGE_NESTED=1` only if you have measured it on your own
+tissue and it helps there. Denser or sparser tissue than lung may behave
+differently — but measure before paying for it.
 
 ## Watching it
 

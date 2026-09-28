@@ -31,8 +31,10 @@
 # looked as if CellSAM had stalled -- the progress record showed otherwise, and
 # reading it rather than the log is what settled this.
 #
-# The fix is the GPU/CPU split (pipeline/run_stage_02_split.sh), which runs the
-# merge in a separate CPU job. Raising the block size was also tried as a fix
+# The merge is now OFF by default (see the measurement below), which removes
+# this problem at the source. When it is switched on, the GPU/CPU split
+# (pipeline/run_stage_02_split.sh) keeps it off the GPU. Raising the block size
+# was also tried as a fix
 # and is REJECTED: it costs a great deal of accuracy for no necessary gain --
 # see the block-size note below. Two further safeguards live here: a hard check
 # that torch can actually see the GPU, so a CPU fallback inside a GPU job fails
@@ -51,7 +53,7 @@
 #   METHODS          what stage 02 runs          (default: cellsam,expansion)
 #   CELLTUNE         1 writes the CellTune TIFF  (default: 1)
 #   CELLTUNE_METHOD  which method to export      (default: cellsam)
-#   MERGE_NESTED     1 folds nested CellSAM labels into their neighbour (default: 1)
+#   MERGE_NESTED     1 folds nested CellSAM labels into their neighbour (default: 0 -- see below)
 #   CELLSAM_DEVICE   force cuda/cpu/mps          (default: cuda if a GPU is allocated, else cpu)
 #   RUN_NOTE         text shown in the report header
 # Anything after the two positional arguments is passed straight to 02_segment.py,
@@ -160,13 +162,30 @@ fi
 ARGS=(--methods "${METHODS:-cellsam,expansion}" --cellsam-device "$DEVICE")
 # An `if` rather than `[ ... ] && ...`: under `set -e` the one-liner form only
 # survives a false test by a subtle exemption, and this file must not depend on it.
-if [ "${MERGE_NESTED:-1}" = "1" ]; then
+if [ "${MERGE_NESTED:-0}" = "1" ]; then
   ARGS+=(--cellsam-merge-nested)
 fi
 if [ "${CELLTUNE:-1}" = "1" ]; then
   ARGS+=(--celltune-export --celltune-method "${CELLTUNE_METHOD:-cellsam}")
 fi
 
+# THE NESTED-LABEL MERGE IS OFF BY DEFAULT, and this is why. Measured on PS88
+# against 734 hand-clicked nuclei in two fields, at the 512 px block:
+#                   recall   precision   F1
+#   unmerged        0.8297     0.6858   0.7509
+#   merged          0.7984     0.6886   0.7394     (3 um match radius)
+#   unmerged        0.9069     0.7438   0.8173
+#   merged          0.8725     0.7500   0.8066     (5 um match radius)
+# It folds 7.7-11% of labels and makes the result slightly WORSE -- worse in
+# both fields at both radii. Recall falls by about 0.03 while precision gains
+# 0.003, so the labels being folded are mostly real cells absorbed into their
+# neighbours, not the duplicate outlines the merge was written to remove.
+# It is also extremely slow: 43-51 minutes for a single 1-megapixel crop, on a
+# slide of 1,017 megapixels, single-threaded.
+# Switch it on with MERGE_NESTED=1 only if you have re-measured it on your own
+# tissue and it helps there. One slide is thin evidence for a benefit; it is
+# ample evidence against paying hours for a loss.
+#
 # Block size. CellSAM resizes EVERY block to exactly 1024x1024 before the model
 # sees it -- cellSAM/sam_inference.py: `imgs = [T.Resize((1024, 1024))(img) ...]`
 # -- so the block size decides the resolution the model actually works at, not

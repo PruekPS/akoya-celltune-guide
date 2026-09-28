@@ -28,6 +28,9 @@
 # Override any of these from the environment:
 #   ACCOUNT QOS GPU_PARTITION GPU_CPUS GPU_TIME GPU_MEM CPU_CPUS CPU_TIME CPU_MEM
 #   CELLSAM_BLOCK METHODS CELLTUNE CELLTUNE_METHOD MERGE_NESTED RUN_NOTE
+#
+# The nested-label merge is off by default; it measured slightly worse than no
+# merge against hand labels and costs hours. See run_stage_02.slurm.
 set -euo pipefail
 
 SAMPLES="${1:?usage: pipeline/run_stage_02_split.sh samples.csv [out_dir] [extra 02 args...]}"
