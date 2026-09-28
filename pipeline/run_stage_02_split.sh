@@ -22,8 +22,8 @@
 # that is a known, accepted cost of the split, not an oversight.
 #
 # Both steps must use the SAME --cellsam-block-px or the resume will not line up
-# with the raw file; this script passes it to both and defaults to 1024, which is
-# CellSAM's native input size (see run_stage_02.slurm for why that matters).
+# with the raw file; this script passes it to both and defaults to 512, which is the
+# size that matched hand-labelled ground truth best (see run_stage_02.slurm).
 #
 # Override any of these from the environment:
 #   ACCOUNT QOS GPU_PARTITION GPU_CPUS GPU_TIME GPU_MEM CPU_CPUS CPU_TIME CPU_MEM
@@ -43,7 +43,7 @@ QOS="${QOS:?set QOS to your SLURM QoS, e.g. export QOS=myqos}"
 GPU_PARTITION="${GPU_PARTITION:-hpg-rtx6000}"
 GPU_CPUS="${GPU_CPUS:-8}";   GPU_TIME="${GPU_TIME:-08:00:00}";  GPU_MEM="${GPU_MEM:-100gb}"
 CPU_CPUS="${CPU_CPUS:-14}";  CPU_TIME="${CPU_TIME:-08:00:00}";  CPU_MEM="${CPU_MEM:-100gb}"
-BLOCK="${CELLSAM_BLOCK:-1024}"
+BLOCK="${CELLSAM_BLOCK:-512}"
 
 [ -f pipeline/sbatch_mail.sh ] || { echo "run this from the repository root" >&2; exit 2; }
 [ -f "$SAMPLES" ] || { echo "no such samples sheet: $SAMPLES" >&2; exit 2; }

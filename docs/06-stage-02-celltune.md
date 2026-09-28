@@ -69,12 +69,24 @@ At a 0.5 µm pixel size, a 10 µm cell reaches the model as:
 | **1024 px** | **untouched** | **~20 px** |
 | 2048 px | downscaled ×2 | ~10 px |
 
-**1024 is the default here** because it is the model's native size: nothing is
-resampled, and there are four times fewer blocks than at 512, which keeps a GPU
-usefully busy.
+**512 is the default here, and it is the default because it was measured.** On
+one slide, scored against 734 hand-clicked nuclei in two fields:
 
-Bigger is not better. At 2048 you halve the resolution the model sees, and
-small cells start to be missed.
+| Block | Cells found | Recall | Precision | F1 |
+|---|---|---|---|---|
+| **512 px** | 1,473,195 | **0.830** | 0.686 | **0.751** |
+| 1024 px | 643,653 | 0.510 | 0.728 | 0.599 |
+
+At 1024 the model misses nearly half the cells a person marked. The tempting
+argument — "1024 is the model's native size, so nothing is resampled" — is
+true and still leads to the wrong answer: upscaling a 512 px block shows the
+model cells at roughly 40 px instead of 20 px, and it detects small cells much
+better that way.
+
+Bigger blocks are faster and worse. **Do not raise this for speed without
+re-scoring against hand labels on your own tissue** — the best value depends on
+your pixel size and how big your cells are, so measure rather than inherit this
+number.
 
 To change it:
 

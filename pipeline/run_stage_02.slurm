@@ -22,21 +22,25 @@
 # partition called "gpu", and the default (hpg-default) has none. The -b QoS
 # (<GROUP>-b) has gres/gpu=0, so it cannot be used for GPU work.
 #
-# THE IDLE-GPU POLICY, and why the first GPU attempt died (job 43475675,
-# 2026-09-26). HiPerGator cancels a job whose GPU sits at 0% utilisation for an
-# hour (docs.rc.ufl.edu/scheduler/idle_gpu_policy/). That is not a bug in the
-# allocation: stage 02's default 512 px block makes PS88 about 4,000 CellSAM
-# calls, each a few milliseconds of SAM forward pass surrounded by seconds of
-# per-block CPU work, so the card is genuinely idle almost all the time. Two
-# things below address it -- a hard check that torch can actually see the GPU
-# (so a CPU fallback inside a GPU job fails in seconds instead of an hour), and
-# a 1024 px default block on GPU (CellSAM's native input size) so each call is
-# worth making without resampling the image. A background
-# sampler logs utilisation every two minutes so the next run can be judged on
-# evidence. Nothing here keeps the GPU artificially busy: that would dodge the
-# policy rather than satisfy it, and UF's own advice is to split GPU and CPU
-# work into separate jobs. Note StarDist is NOT the problem -- it is 0.08 h of
-# a 15.6 h PS81 run (CellSAM is 99.4%).
+# THE IDLE-GPU POLICY. The cluster cancels a job whose GPU sits at 0%
+# utilisation for an hour (docs.rc.ufl.edu/scheduler/idle_gpu_policy/). What
+# trips it here is the NESTED-LABEL MERGE, not CellSAM and not the block size.
+# Evidence from job 43475675: CellSAM finished all 3,899 blocks at 512 px in
+# about 2 h 13 m, and the job was cancelled 1 h 41 m later, during the
+# single-threaded merge. The merge printed nothing at the time, so the log
+# looked as if CellSAM had stalled -- the progress record showed otherwise, and
+# reading it rather than the log is what settled this.
+#
+# The fix is the GPU/CPU split (pipeline/run_stage_02_split.sh), which runs the
+# merge in a separate CPU job. Raising the block size was also tried as a fix
+# and is REJECTED: it costs a great deal of accuracy for no necessary gain --
+# see the block-size note below. Two further safeguards live here: a hard check
+# that torch can actually see the GPU, so a CPU fallback inside a GPU job fails
+# in seconds rather than an hour, and a sampler logging utilisation every two
+# minutes so the next run is judged on evidence. Nothing here keeps the GPU
+# artificially busy; that would dodge the policy rather than satisfy it, and
+# splitting is what UF Research Computing themselves recommend. StarDist is not
+# a factor -- it is 0.08 h of a 15.6 h PS81 run, with CellSAM at 99.4%.
 #
 # CPU baseline to beat, measured: PS81 15.7 h / 12.3 GB, PS88 ~14 h / 19.4 GB,
 # PS82 7.5 h, all at 14-16 pinned threads. Wall limits: <GROUP> 31 days,
@@ -171,11 +175,17 @@ fi
 #     512 px blocks  -> 3,840 blocks on PS88, upscaled x2.00, cell ~40 px
 #    1024 px blocks  ->   960 blocks on PS88, no resampling, cell ~20 px
 #    2048 px blocks  ->   240 blocks on PS88, DOWNSCALED x0.50, cell ~10 px
-# 1024 is therefore the natural choice: it is the model's native input, so
-# nothing is resampled, and it is a quarter of the blocks that 512 gives, which
-# is also four times the GPU work per call (see the idle-GPU note in the header).
-# 2048 would be fewer blocks still, but it halves the resolution CellSAM sees
-# and is a bad trade for accuracy.
+# MEASURED ON PS88, 2026-09-27, against hand-clicked nuclei in two fields
+# (734 marks). Block size is NOT just a tiling choice -- it changes how big a
+# cell looks to the model, and that changes the answer a great deal:
+#     512 px  -> 1,473,195 cells   recall 0.830  precision 0.686  F1 0.751
+#    1024 px  ->   643,653 cells   recall 0.510  precision 0.728  F1 0.599
+# At 1024 CellSAM misses nearly half the cells that were marked by hand. The
+# "native input size, nothing resampled" argument for 1024 sounded right and is
+# wrong in practice: upscaling a 512 px block presents cells at ~40 px instead
+# of ~20 px, and the model detects small cells far better at that size.
+# **512 is the default because it is the setting that matches ground truth.**
+# Do not raise it for speed without re-scoring against hand labels.
 #
 # Seam placement depends on this, and the halo scales with it (stage 02 uses
 # block/8), so it is printed rather than applied silently. CPU keeps stage 02's
@@ -189,7 +199,7 @@ case " $* " in
 esac
 if [ "$BLOCK_SET_BY_USER" = "0" ]; then
   if [ "$DEVICE" = "cuda" ]; then
-    CELLSAM_BLOCK="${CELLSAM_BLOCK:-1024}"
+    CELLSAM_BLOCK="${CELLSAM_BLOCK:-512}"
   else
     CELLSAM_BLOCK="${CELLSAM_BLOCK:-512}"
   fi
