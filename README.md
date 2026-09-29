@@ -7,7 +7,7 @@ It is written for someone who has **never used a terminal or a cluster before**.
 Every step is spelled out, including how to log in and how to check you are in
 the right folder. If a step assumes something, it says so.
 
-You do not need any AI assistant to follow this. Work through the pages in order.
+Work through the pages in order.
 
 ---
 
