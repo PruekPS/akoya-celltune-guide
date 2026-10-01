@@ -1,4 +1,4 @@
-# 8. Changing things
+# 11. Changing things
 
 What to edit when something differs from the walkthrough. This is the page to
 come back to.
@@ -173,4 +173,4 @@ a warning.
 
 ---
 
-Next: [9. When it goes wrong](09-troubleshooting.md)
+Next: [12. When it goes wrong](12-troubleshooting.md)

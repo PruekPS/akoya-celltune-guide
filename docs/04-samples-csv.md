@@ -112,7 +112,7 @@ Every stage then processes all three in one job, one after another. Each gets
 its own `results/<sample_id>/` folder.
 
 To run only one row from a multi-slide file, add `--sample-id PS82` to the
-command (see page 8).
+command (see page 11).
 
 ---
 

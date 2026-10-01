@@ -1,0 +1,28 @@
+Marker,Marker_orig,Expected_Expression,Lineage
+DAPI,DAPI,nuclei (all cells),0
+CD36,CD36,"macrophages, endothelium, adipocyte progenitors",1
+CD31,CD31,endothelium,1
+F480,F4/80,macrophages,1
+CD44,CD44,"activated/memory cells, broadly expressed",0
+Vimentin,Vimentin,mesenchymal cells; osteosarcoma cells are vimentin-positive too; also some leukocytes and endothelium,1
+CD68,CD68,macrophages,1
+Iba1,Iba1,macrophages,1
+S100A9,S100A9,neutrophils and monocytes/myeloid,1
+CD206,CD206,M2-like macrophages,0
+CD45,CD45,all leukocytes,1
+CD20,CD20,B cells,1
+Ly6G,Ly6g,neutrophils,1
+CD8,CD8,cytotoxic T cells,1
+PanCK,Pan-Cytokeratin,"epithelium (host lung airway/alveolar, not the tumor)",1
+FOXP3,FOXP3,regulatory T cells (nuclear),1
+Ki67,Ki67,proliferating cells,0
+Caveolin,Caveolin,"endothelium, fibroblasts, some epithelium",0
+CD3e,CD3e,T cells,1
+FCRg,FCRg,several immune types,1
+CD4,CD4,"helper T cells - UNUSABLE on PS81/82/88 (diffuse stain); Lineage set to 0 so it stays out of lineage features until a new clone is stained",0
+PDL1,PD-L1,"myeloid and tumor cells, inducible",0
+Ly6C,Ly6C,monocytes,1
+PD1,PD-1,activated/exhausted T cells,0
+MHCII,MHC II,antigen-presenting cells (class II),0
+Arg1,Arg1,"M2-like macrophages, myeloid suppressors",0
+VSIG4,VSIG4,macrophages,0

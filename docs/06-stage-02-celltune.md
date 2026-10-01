@@ -210,4 +210,4 @@ labels will not line up.
 
 ---
 
-Next: [7. Loading into CellTune](07-into-celltune.md)
+Next: [7. Choosing and cutting ROIs](07-choosing-rois.md)

@@ -1,6 +1,8 @@
 # Results and data never belong in this repository
 results*/
 data/
+CellTune_Data/
+rois/
 *.qptiff
 *.qptif
 *.tif
