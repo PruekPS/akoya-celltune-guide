@@ -57,7 +57,9 @@ commands:
 ssh <your-username>@<cluster-login-host>          # log in
 cd /blue/<GROUP>/<USER>/akoya-pipeline            # go to the project
 nano samples/my_slide.csv                          # describe your slide
-ACCOUNT=<GROUP> QOS=<GROUP> pipeline/run_stage_02_split.sh samples/my_slide.csv results
+pipeline/sbatch_mail.sh --account=<GROUP> --qos=<GROUP> --partition=<GPU-PARTITION> \
+    --gres=gpu:1 --cpus-per-task=8 --time=06:00:00 \
+    pipeline/run_stage_02.slurm samples/my_slide.csv results   # segment (page 6)
 ```
 
 Through a CellTune-ready set of ROIs, two more:

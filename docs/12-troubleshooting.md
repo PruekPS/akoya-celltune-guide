@@ -121,12 +121,16 @@ source ~/.config/deepcell_token && echo "${#DEEPCELL_ACCESS_TOKEN} characters"
 cancelled due to low GPU resource utilization
 ```
 
-Your GPU sat idle too long. Two causes:
+Your GPU sat idle too long. The usual cause is **the nested-label merge
+running inside a single GPU job.** It is off by default; if you switched it on
+(`MERGE_NESTED=1`), it runs for hours on one core after CellSAM has finished,
+with the GPU doing nothing. Use `run_stage_02_split.sh` whenever the merge is
+on (page 6).
 
-1. **You used a single job instead of the split.** The CPU phase after CellSAM
-   holds the GPU doing nothing. Use `run_stage_02_split.sh` (page 6).
-2. **Block size too small.** Thousands of tiny blocks means the GPU does a few
-   milliseconds of work at a time. Keep `CELLSAM_BLOCK=1024`.
+The block size is not the cause. CellSAM ran a whole slide at the default
+512 px — about 3,900 blocks — in a little over two hours on a GPU without
+tripping the idle limit. Do not raise the block size to fix this; it costs
+nearly half the cells (page 6).
 
 **Check before redoing anything:**
 
@@ -141,11 +145,13 @@ Resume rather than restart — page 6, "Resuming".
 
 ## `TIMEOUT`
 
-Raise `--time`. CellSAM is 14–16 h on CPU for a whole slide, about 1.5 h on a
-GPU. If a CPU job times out, resume rather than restart:
+Raise `--time`. CellSAM is 14–16 h on CPU for a whole slide, about 2–3 h on a
+GPU at the default 512 px block. If the job timed out after CellSAM had
+finished, resume rather than restart, with the same block size as the original
+run:
 
 ```bash
-... pipeline/run_stage_02.slurm samples/my_slide.csv results --resume --cellsam-block-px 1024
+... pipeline/run_stage_02.slurm samples/my_slide.csv results --resume --cellsam-block-px 512
 ```
 
 ---

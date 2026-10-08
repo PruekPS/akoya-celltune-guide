@@ -101,7 +101,7 @@ Set these in front of the command, or `export` them once per session:
 | `GPU_PARTITION` | `hpg-rtx6000` | which GPU partition — **almost certainly different on your cluster** |
 | `GPU_CPUS` / `GPU_TIME` / `GPU_MEM` | 8 / 08:00:00 / 100gb | GPU job resources |
 | `CPU_CPUS` / `CPU_TIME` / `CPU_MEM` | 14 / 08:00:00 / 100gb | CPU job resources |
-| `CELLSAM_BLOCK` | 1024 | block size (page 6) |
+| `CELLSAM_BLOCK` | 512 | block size (page 6) |
 
 Find your GPU partitions:
 

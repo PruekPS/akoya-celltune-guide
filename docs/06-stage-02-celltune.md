@@ -16,29 +16,41 @@ slightly worse, and it is very slow. See "The nested-label merge" below.
 
 ---
 
-## The recommended way: two jobs
+## The recommended way: one GPU job
+
+```bash
+pipeline/sbatch_mail.sh --account=<GROUP> --qos=<GROUP> \
+    --partition=<GPU-PARTITION> --gres=gpu:1 --cpus-per-task=8 --time=06:00:00 \
+    pipeline/run_stage_02.slurm samples/my_slide.csv results
+```
+
+`--partition` must be one of your cluster's GPU partitions (page 11 shows how to
+list them). The script sees the GPU and switches CellSAM to it by itself.
+
+Several slides in one samples sheet run one after another in the same job. To
+give each slide its own job — so one failure does not hold up the rest — add
+`--sample-id <your-sample-id>` at the end and submit once per slide.
+
+If the job fails after CellSAM has finished, you do not have to redo
+segmentation — see "Resuming" below.
+
+### The two-job split, and when you need it
 
 ```bash
 ACCOUNT=<GROUP> QOS=<GROUP> pipeline/run_stage_02_split.sh samples/my_slide.csv results
 ```
 
-That submits **two** jobs:
+This runs CellSAM in a GPU job, then everything else in a CPU job that starts
+only if the first succeeded. **You only need it if you switch the nested-label
+merge on** (`MERGE_NESTED=1`, see below).
 
-1. **GPU job** — CellSAM only, then stops.
-2. **CPU job** — the merge, the cell tables, the report and the CellTune
-   export. Starts automatically, and only if job 1 succeeded.
-
-### Why two jobs and not one
-
-Only CellSAM uses the GPU. Everything after it is single-threaded CPU work, and
-on a large slide the merge alone can run over half an hour. Many clusters
-**cancel a job whose GPU sits idle** — a common threshold is 0% utilisation for
-one hour. Holding a GPU through the CPU phase therefore risks losing the job
-*after* the expensive part has already succeeded. Splitting avoids that, and
-frees the GPU for someone else.
-
-If job 1 succeeds and job 2 fails, you do not have to redo segmentation — see
-"Resuming" below.
+The reason: many clusters **cancel a job whose GPU sits idle** — a common
+threshold is 0% utilisation for one hour. Everything after CellSAM is CPU work.
+With the merge off, that CPU work is short and a single job is fine. With the
+merge on, it runs for hours on one core while the GPU sits idle, and the job
+gets cancelled *after* the expensive part has already succeeded. The split
+avoids that. It still works with the merge off; it just adds a second job for
+no benefit.
 
 ---
 
@@ -51,7 +63,8 @@ pipeline/sbatch_mail.sh --account=<GROUP> --qos=<GROUP> \
 ```
 
 One job, all on CPU. Expect **14–16 hours** for a whole slide instead of about
-1.5 hours on a GPU. It works; it is just slow, and nothing can cancel it for
+2–3 hours on a GPU (CellSAM alone took 2 h 13 m on a ~30 GB slide at the
+default 512 px block). It works; it is just slow, and nothing can cancel it for
 being idle.
 
 ---
@@ -67,8 +80,8 @@ At a 0.5 µm pixel size, a 10 µm cell reaches the model as:
 
 | Block | What happens | Cell reaches model as |
 |---|---|---|
-| 512 px | upscaled ×2 | ~40 px |
-| **1024 px** | **untouched** | **~20 px** |
+| **512 px (default)** | **upscaled ×2** | **~40 px** |
+| 1024 px | untouched | ~20 px |
 | 2048 px | downscaled ×2 | ~10 px |
 
 **512 is the default here, and it is the default because it was measured.** On
@@ -93,8 +106,9 @@ number.
 To change it:
 
 ```bash
-CELLSAM_BLOCK=512 ACCOUNT=<GROUP> QOS=<GROUP> \
-    pipeline/run_stage_02_split.sh samples/my_slide.csv results
+CELLSAM_BLOCK=512 pipeline/sbatch_mail.sh --account=<GROUP> --qos=<GROUP> \
+    --partition=<GPU-PARTITION> --gres=gpu:1 --cpus-per-task=8 --time=06:00:00 \
+    pipeline/run_stage_02.slurm samples/my_slide.csv results
 ```
 
 **Keep it the same across slides you intend to compare.** Block seams move when
@@ -132,8 +146,9 @@ differently — but measure before paying for it.
 squeue -u $USER
 ```
 
-You will see both jobs. The second sits in `PD` with reason `(Dependency)`
-until the first finishes — that is correct, not a fault.
+If you used the two-job split, you will see both jobs. The second sits in
+`PD` with reason `(Dependency)` until the first finishes — that is correct, not
+a fault.
 
 CellSAM writes its progress to a file you can read at any time:
 
@@ -142,18 +157,18 @@ cat results/<your-sample-id>/02_segment/cells_cellsam_raw.progress.json
 ```
 
 ```json
-{"block_index": 709, "next_id": 532823, "block": 1024, "halo": 128,
+{"block_index": 2800, "next_id": 1061402, "block": 512, "halo": 64,
  "H": 33120, "W": 30720, "done": false}
 ```
 
 `block_index` counts blocks finished. Total blocks is roughly
-`(H ÷ block) × (W ÷ block)` — here about 990. So 709 of 990 done.
+`(H ÷ block) × (W ÷ block)` — here about 3,900. So 2,800 of 3,900 done.
 
 ---
 
 ## The file you came for
 
-When both jobs finish:
+When the job finishes:
 
 ```bash
 ls -la results/<your-sample-id>/02_segment/celltune/
@@ -181,14 +196,15 @@ count in the hundreds of thousands for a whole slide.
 
 > **If the folder is missing**, the export was skipped. It is logged as a
 > *warning*, not an error, so the job can still say `COMPLETED`. Read the log:
-> `grep -i celltune logs/akoya_02_cpu_*.out`. The usual cause is asking to
+> `grep -i celltune logs/akoya_02_*.out`. The usual cause is asking to
 > export a method that did not run.
 
 ---
 
 ## Resuming
 
-If the CPU job fails but CellSAM had finished, do **not** start over. The raw
+If the job fails after CellSAM had finished (with the split, if the CPU job
+fails), do **not** start over. The raw
 labels are on disk. Confirm:
 
 ```bash
@@ -200,13 +216,14 @@ If it says `"done": true`, finish with:
 ```bash
 pipeline/sbatch_mail.sh --account=<GROUP> --qos=<GROUP> \
     --cpus-per-task=14 --time=06:00:00 \
-    pipeline/run_stage_02.slurm samples/my_slide.csv results --resume --cellsam-block-px 1024
+    pipeline/run_stage_02.slurm samples/my_slide.csv results --resume --cellsam-block-px 512
 ```
 
 `--resume` reads the progress file and skips segmentation entirely.
 
 **The block size must match the original run.** If they differ, the saved
-labels will not line up.
+labels will not line up. 512 is the default; if you changed it, use your value
+here. The `"block"` field in the progress file tells you what was used.
 
 ---
 
