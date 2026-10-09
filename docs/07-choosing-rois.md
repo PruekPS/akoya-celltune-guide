@@ -64,10 +64,27 @@ Example output, on a real whole-slide run:
 role     train  validation
 stratum
 all         9           2
-wrote rois/PS88_rois.csv and rois/PS88_rois.geojson (open the GeoJSON in QuPath to look before you commit)
+wrote rois/PS88_rois.csv and rois/PS88_rois.geojson
+look before you commit: open the slide in QuPath, then File > Import objects from file... and pick the GeoJSON (it is data, not a script: do not run it in the script editor)
 ```
 
-**Open the GeoJSON over the slide in QuPath.** Every box should sit on tissue,
+**Open the GeoJSON over the slide in QuPath.** Copy `rois/<your-sample-id>_rois.geojson`
+to your own computer, open the slide in QuPath **first**, then choose
+**File → Import objects from file…** and pick the GeoJSON. The ROIs arrive as
+annotations — yellow for train, cyan for validation — and the annotation list on
+the left names them `<your-sample-id>_R01`, `_R02`, and so on. If you cannot see
+them, press **Zoom to fit**: each box is about 1 mm across on a slide that is
+many millimetres wide.
+
+> **It is data, not a script.** Dropping the file onto QuPath while no slide is
+> open, or pasting it into Automate → Script editor, treats it as code and fails
+> with `Unexpected input: '{"type":'`. That error means "wrong menu", not "bad
+> file". If instead the import itself fails with `Unable to parse PathClass`,
+> your copy of `make_rois.py` is older than the colour fix — QuPath refuses
+> a classification that has a name but no colour — so update the script and run
+> `propose` again.
+
+Every box should sit on tissue,
 spread out, away from folds and bubbles. If it does not look right, change the
 rule (`--roi-um`, `--exclude`, `--seed`) and run propose again — never
 hand-pick ROIs because they "look like good tumor". That bakes your own

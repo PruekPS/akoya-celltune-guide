@@ -151,12 +151,20 @@ def propose(cells, shape_hw, roi_um, px_um, target_cells, regions_raster=None, p
     return sel, elig
 
 
+# QuPath colours for the two roles, as [R, G, B]. QuPath 0.5.1 refuses to import a classification
+# object that has a name but no colour ("Unable to parse PathClass", GsonTools.PathClassTypeAdapter),
+# so the colour is not decoration: without it the whole file fails to load.
+ROI_COLORS = {"train": [255, 200, 0], "validation": [0, 220, 255]}
+ROI_COLOR_OTHER = [128, 128, 128]
+
+
 def to_geojson(rois, sample_id):
     feats = []
     for r in rois.itertuples():
         ring = [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1], [r.x0, r.y0]]
+        classification = {"name": f"ROI_{r.role}", "color": ROI_COLORS.get(r.role, ROI_COLOR_OTHER)}
         feats.append({"type": "Feature",
-                      "properties": {"name": r.roi_id, "classification": {"name": f"ROI_{r.role}"},
+                      "properties": {"name": r.roi_id, "classification": classification,
                                      "stratum": r.stratum, "n_cells": int(r.n_cells)},
                       "geometry": {"type": "Polygon", "coordinates": [ring]}})
     return {"type": "FeatureCollection", "features": feats}
@@ -189,7 +197,9 @@ def cmd_propose(a):
           f"({int((sel.role == 'train').sum())} train, {int((sel.role == 'validation').sum())} validation), "
           f"~{int(sel.n_cells.sum()):,} cells")
     print(sel.groupby(["stratum", "role"]).size().unstack(fill_value=0).to_string())
-    print(f"wrote {a.out} and {gj} (open the GeoJSON in QuPath to look before you commit)")
+    print(f"wrote {a.out} and {gj}")
+    print("look before you commit: open the slide in QuPath, then File > Import objects from file... "
+          "and pick the GeoJSON (it is data, not a script: do not run it in the script editor)")
 
 
 # -- crop ---------------------------------------------------------------------------------------
