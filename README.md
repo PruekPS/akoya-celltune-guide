@@ -66,11 +66,11 @@ Through a CellTune-ready set of ROIs, two more:
 
 ```bash
 pipeline/sbatch_mail.sh --account=<GROUP> --qos=<GROUP> \
-    pipeline/run_make_rois.slurm propose results my_slide --out rois/my_slide_rois.csv
-# ... look at rois/my_slide_rois.geojson in QuPath first ...
+    pipeline/run_make_rois.slurm propose results my_slide
+# ... look at results/my_slide/rois/my_slide_rois.geojson in QuPath first ...
 pipeline/sbatch_mail.sh --account=<GROUP> --qos=<GROUP> \
     pipeline/run_make_rois.slurm crop results my_slide \
-    --rois rois/my_slide_rois.csv --out CellTune_Data/my_project/Images
+    --out CellTune_Data/my_project/Images
 ```
 
 Anything in `<angle brackets>` is a placeholder you replace with your own value.

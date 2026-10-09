@@ -19,15 +19,25 @@ tissue region, whether it passed QC).
 ```bash
 # 1. propose — look at this before you commit to anything
 pipeline/sbatch_mail.sh --account=<GROUP> --qos=<GROUP> \
-    pipeline/run_make_rois.slurm propose results <your-sample-id> \
-    --out rois/<your-sample-id>_rois.csv
+    pipeline/run_make_rois.slurm propose results <your-sample-id>
 
 # 2. crop — only after you've looked at step 1's output
 pipeline/sbatch_mail.sh --account=<GROUP> --qos=<GROUP> \
     pipeline/run_make_rois.slurm crop results <your-sample-id> \
-    --rois rois/<your-sample-id>_rois.csv --out CellTune_Data/<PROJECT>/Images \
+    --out CellTune_Data/<PROJECT>/Images \
     --marker-map panels/celltune_markers_mouse_io_template.csv
 ```
+
+**Where things go.** The proposal (a `.csv` and a `.geojson`) is written to
+`results/<your-sample-id>/rois/`, next to that slide's other results, and `crop`
+reads it from there — you do not type either path. That is deliberate: the box
+positions and cell IDs are only valid for the exact label image they were
+proposed from, so if you segment the slide again (a different block size, the
+merge switched on) the old proposal is stale and belongs to the old run. The
+cropped images are different: one CellTune project pools ROIs from several
+slides and the TIFFs are large, so you name that folder yourself with `--out`.
+Pass `--out` to `propose` or `--rois` to `crop` only if you want a different
+location.
 
 These do **not** chain automatically — that gap between them is deliberate,
 so you look at what was proposed before cutting anything.
@@ -64,11 +74,11 @@ Example output, on a real whole-slide run:
 role     train  validation
 stratum
 all         9           2
-wrote rois/PS88_rois.csv and rois/PS88_rois.geojson
+wrote results/PS88/rois/PS88_rois.csv and results/PS88/rois/PS88_rois.geojson
 look before you commit: open the slide in QuPath, then File > Import objects from file... and pick the GeoJSON (it is data, not a script: do not run it in the script editor)
 ```
 
-**Open the GeoJSON over the slide in QuPath.** Copy `rois/<your-sample-id>_rois.geojson`
+**Open the GeoJSON over the slide in QuPath.** Copy `results/<your-sample-id>/rois/<your-sample-id>_rois.geojson`
 to your own computer, open the slide in QuPath **first**, then choose
 **File → Import objects from file…** and pick the GeoJSON. The ROIs arrive as
 annotations — yellow for train, cyan for validation — and the annotation list on
