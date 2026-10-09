@@ -25,7 +25,7 @@ pipeline/sbatch_mail.sh --account=<GROUP> --qos=<GROUP> \
 pipeline/sbatch_mail.sh --account=<GROUP> --qos=<GROUP> \
     pipeline/run_make_rois.slurm crop results <your-sample-id> \
     --out CellTune_Data/<PROJECT>/Images \
-    --marker-map panels/celltune_markers_mouse_io_template.csv
+    --marker-map panels/celltune_markers_<your-panel>.csv   # your table, see below
 ```
 
 **Where things go.** The proposal (a `.csv` and a `.geojson`) is written to
@@ -122,13 +122,96 @@ CellTune_Data/<PROJECT>/Images/
 └── cut_cells.csv   cells the ROI edge slices through
 ```
 
-Marker names are cleaned to CellTune's rule (letters, digits, underscore only)
-through `--marker-map`, a CSV with `Marker_orig,Marker` columns —
+Each channel's TIFF is named from your **marker table** (`--marker-map`) —
+see the next section. Without `--marker-map`, names are cleaned automatically
+(`F4/80` → `F480`, `PD-L1` → `PDL1`), and the run stops if two channels collide
+after cleaning rather than silently merging them.
+
+### Writing your marker table (`--marker-map`)
+
+This one CSV does two jobs. `crop` uses it to name each channel's TIFF, and
+CellTune uses **the same file** later as its marker table (page 9). Write it
+once per panel and use it for every slide stained with that panel.
+
 `panels/celltune_markers_mouse_io_template.csv` is a worked example for a
-mouse immuno-oncology panel; write your own for a different panel the same
-way you wrote your segmentation panel on page 3. Without `--marker-map`,
-vendor names are cleaned automatically, and the run stops if two channels
-collide after cleaning rather than silently merging them.
+mouse immuno-oncology panel. **Do not use it unchanged unless your panel is
+that exact panel** — the names must match your slides, not ours.
+
+| Column | What goes in it | Rules |
+|---|---|---|
+| `Marker` | the clean name: the TIFF's file name, and the name CellTune shows | letters, digits and `_` only — no spaces, `-`, `/` or `.`; each name once; keep it the same across all your slides |
+| `Marker_orig` | the channel name **exactly as your slide file spells it** | upper/lower case does not matter; spaces, hyphens and slashes do |
+| `Expected_Expression` | free text: which cells should be positive | for you and CellTune's display, not used by `crop`; put the text in `"quotes"` if it contains a comma |
+| `Lineage` | `1` or `0` | `1` = a crisp marker that defines a cell type (CD45, CD3e, CD8 …); `0` = everything else: DAPI, state markers (Ki67, PD-1), and any channel that stained poorly |
+
+**1. Find your slide's channel names.** `crop` reads them from the slide file
+itself, not from your page 3 panel. Stage 00 recorded them, in the
+`image_name` column:
+
+```bash
+python -c "import pandas as pd; print(pd.read_csv('results/<your-sample-id>/00_ingest/channels.csv')['image_name'].to_string())"
+```
+
+Every name printed needs one row in your table, spelled the same way in
+`Marker_orig`.
+
+**2. Copy the example and edit the copy.** Never edit the template itself — a
+later `git pull` would then clash with your edits.
+
+```bash
+cp panels/celltune_markers_mouse_io_template.csv panels/celltune_markers_<your-panel>.csv
+nano panels/celltune_markers_<your-panel>.csv
+```
+
+Keep the header line. One row per channel: delete rows for markers you do not
+have, add rows for ones you do, and fix `Marker_orig` wherever your slide
+spells a name differently. A channel your page 3 panel marked `failed` still
+gets a row — `crop` writes every channel — but give it `Lineage` `0` so it
+cannot drive cell typing. Save with `Ctrl`+`O`, `Enter`, exit with `Ctrl`+`X`.
+
+**3. Check it against the slide before cropping.** Set the two paths on the
+first line of the command, then paste it all:
+
+```bash
+python - panels/celltune_markers_<your-panel>.csv results/<your-sample-id>/00_ingest/channels.csv <<'EOF'
+import csv, re, sys
+marker_map, channels = sys.argv[1], sys.argv[2]
+rows = list(csv.DictReader(open(marker_map, newline="")))
+lut = {r["Marker_orig"].lower(): r["Marker"] for r in rows}
+image = [r["image_name"] for r in csv.DictReader(open(channels, newline=""))]
+problems = 0
+for r in rows:
+    if not re.fullmatch(r"[A-Za-z0-9_]+", r["Marker"]):
+        print(f"BAD NAME   {r['Marker']!r}: Marker may only use letters, digits and _"); problems += 1
+    if r.get("Lineage", "").strip() not in ("0", "1"):
+        print(f"BAD LINEAGE {r['Marker']}: Lineage must be 1 or 0, not {r.get('Lineage')!r}"); problems += 1
+dupes = {m for m in [r["Marker"] for r in rows] if [r["Marker"] for r in rows].count(m) > 1}
+for m in sorted(dupes):
+    print(f"DUPLICATE  Marker {m!r} appears more than once"); problems += 1
+for n in image:
+    if n.lower() in lut:
+        print(f"ok         {n!r:22} -> {lut[n.lower()]}.tif")
+    else:
+        print(f"NOT IN MAP {n!r:22} -> {re.sub(r'[^A-Za-z0-9_]', '', n)}.tif (cleaned automatically; add a row)"); problems += 1
+for o in sorted(set(lut) - {n.lower() for n in image}):
+    print(f"UNUSED     Marker_orig {o!r} matches no channel on this slide (typo, or not in your panel)")
+print("no problems" if problems == 0 else f"{problems} problem(s) to fix before cropping")
+EOF
+```
+
+What each line means:
+
+| Line | Means | Fix |
+|---|---|---|
+| `ok` | that channel will be saved under this name | nothing |
+| `NOT IN MAP` | no row matches this channel; it falls back to the automatic name, which may not match your `Marker` column | add a row, or correct that row's `Marker_orig` |
+| `UNUSED` | a row matches no channel on this slide — usually a spelling difference | correct `Marker_orig`, or delete the row if you do not have that marker |
+| `BAD NAME` / `DUPLICATE` / `BAD LINEAGE` | the table breaks a rule above | fix that row |
+
+Run it until it ends with `no problems`, then crop with
+`--marker-map panels/celltune_markers_<your-panel>.csv`. If all your slides
+were stained with the same panel, checking one slide is enough — but if any
+slide was scanned with a different channel list, check that one too.
 
 **Cells in `cut_cells.csv` are cells the crop sliced in half at an ROI edge.**
 Their signal is incomplete — exclude them when you sample cells to label, and

@@ -43,7 +43,8 @@ Things worth knowing before you start:
 
 `panels/celltune_markers_mouse_io_template.csv` is a worked marker table for a
 mouse immuno-oncology panel — copy it and edit for yours, the same way you
-wrote your segmentation panel on page 3.
+wrote your segmentation panel on page 3. Page 7 ("Writing your marker table") walks through
+editing it and checking it against your slide before you crop.
 
 **Write your own cell-type table; this guide does not ship one.** Which
 markers define which cell type is a scientific call about your own biology,
