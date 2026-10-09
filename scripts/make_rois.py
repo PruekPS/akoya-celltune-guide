@@ -163,6 +163,7 @@ def to_geojson(rois, sample_id):
 
 
 def cmd_propose(a):
+    pathlib.Path(a.out).parent.mkdir(parents=True, exist_ok=True)  # before the slow part, not after
     labels = cr.open_labels(a.labels)
     cells = cr.centroids_from_labels(labels)
     raster = priority = None

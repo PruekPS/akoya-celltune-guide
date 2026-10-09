@@ -173,6 +173,43 @@ sacctmgr show qos <your-qos> format=Name,MaxTRES,MaxWall
 
 ---
 
+## `Bus error (core dumped)` — exit code 135
+
+The last line of the log looks like:
+
+```
+slurm_script: line 232: 476715 Bus error   (core dumped) python scripts/02_segment.py ...
+```
+
+and the job email says `FAILED (exit code 135)`. This is not a Python error: the
+operating system stopped the program because a file it was using stopped being
+readable or writable underneath it. Stage 02 keeps several slide-sized working
+files on disk while it runs, so a brief storage hiccup on the cluster is the
+usual cause. If other slides in the same batch finished, that is almost
+certainly what happened.
+
+**What to do:**
+
+1. **Submit the same slide again**, once. Most of the time it simply works.
+2. **If it fails again at the same point**, suspect the slide file itself —
+   most often a transfer that did not finish. Compare its fingerprint on the
+   cluster with the original:
+   ```bash
+   md5sum /blue/<GROUP>/<USER>/<data-folder>/<your-slide>.qptiff   # on the cluster
+   md5 /path/on/your/laptop/<your-slide>.qptiff                     # on a Mac
+   ```
+   If they differ, transfer the slide again and rerun stages 00–01 and 02 for
+   it.
+3. **Delete the crash file.** `(core dumped)` leaves a file named `core.…` in
+   the folder you submitted from. It is often several GB, counts against your
+   storage, and nothing needs it:
+   ```bash
+   ls -lh core*
+   rm core.<the full name it shows>
+   ```
+
+---
+
 ## Second job stuck at `(Dependency)`
 
 Correct behaviour — it is waiting for the GPU job. If the first job **fails**,

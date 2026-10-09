@@ -1,7 +1,7 @@
 #!/bin/bash
 # Stage 02 as two chained jobs: CellSAM on a GPU, then everything else on CPU.
 #
-#   pipeline/run_stage_02_split.sh samples.csv results_gpu1024 [extra 02 args...]
+#   pipeline/run_stage_02_split.sh samples.csv results [extra 02 args...]
 #
 # Why split. CellSAM is the only part of stage 02 that uses the GPU. Everything
 # after it -- the nested-label merge above all -- is single-threaded CPU work,
