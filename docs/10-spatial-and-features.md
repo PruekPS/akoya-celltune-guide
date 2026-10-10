@@ -42,7 +42,8 @@ Before this will work, you need:
 
 `--priority` lists classes lowest-priority first — where two regions overlap,
 the one named later wins. `--focus` names the class that gets a signed
-distance-to-edge column (negative inside it); `near_boundary` flags cells
+distance-to-edge column in µm (**positive inside it, negative outside**, 0 on
+the edge); `near_boundary` flags cells
 within `--boundary-um` of that edge, where the region call is least certain.
 A cell outside every drawn region is `Unassigned`.
 
@@ -92,10 +93,17 @@ corrected), and, with `--ark-dir`, a halo-tiled cell table ready for
 ```bash
 python scripts/build_sample_features.py \
     --cells spatial_*/cell_types_final.csv --meta meta.csv \
-    --group "Lymphoid=CD3e+,CD20+" --ratio "CD8_CD4=CD8/CD3e" \
+    --group "Lymphoid=<TypeA>+<TypeB>" --ratio "A_over_B=<TypeA>/<TypeB>" \
     --by-region Tumor --diversity-um 30 --knn 1 \
     --out features.csv
 ```
+
+`--group` and `--ratio` take **cell-type names exactly as they appear in
+your CellTune export** (for example `CD8_Tcell`), joined with `+` — not
+marker names, and no commas. A name that matches no cell type is not an
+error: it silently counts zero cells, so the group comes out as 0 and the
+ratio as `NaN`. Check the spelling against `cell_types_final.csv`. A
+`--ratio` side may also use a `--group` name.
 
 `--meta` is a CSV you write: `sample_id`, `px_um`, and whatever grouping
 column you intend to compare on (e.g. `group`). Pass `--rois` (the CSV from
