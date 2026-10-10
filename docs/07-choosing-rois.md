@@ -261,7 +261,7 @@ cells, not cut through them.
 |---|---|---|
 | `--roi-um` | 500 | ROI side length, in µm |
 | `--target-cells` | 30000 | cells to pool across all chosen ROIs |
-| `--regions` | *(none)* | H&E regions GeoJSON, already warped onto the slide (page 10) |
+| `--regions` | *(none)* | H&E regions GeoJSON, already warped onto the slide's pixels (registration, e.g. with VALIS, is not covered in this guide) |
 | `--focus` | *(none)* | which region class defines the `interface` stratum, e.g. `Tumor` |
 | `--exclude` | *(none)* | GeoJSON of folds/bubbles/torn edges to avoid |
 | `--validation-frac` | 0.2 | share of ROIs per stratum held out, never trained on |
@@ -276,7 +276,7 @@ Full list: `python scripts/make_rois.py propose --help` /
 
 - **Labelling ROIs** (this page) teach the classifier. Chosen by the rule
   above, never by outcome, and spread across slides and tissue contexts.
-- **Analysis units** are what you compare between groups later (page 10) —
+- **Analysis units** are what you compare between groups later, after CellTune —
   for a whole slide that is the slide itself, not an ROI. Never choose an
   analysis region because "the classifier found something there": that is
   selecting on the result.

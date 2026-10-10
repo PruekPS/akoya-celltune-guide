@@ -58,8 +58,8 @@ deliberately while you write it:
   interest** — for example no tumor marker, with tumor cells sharing a marker
   with normal mesenchymal cells — do not force a marker-only definition.
   Define it broadly by marker (e.g. `Mesenchymal_Vim`) and split it by H&E
-  region afterward (page 10) rather than pretending the marker alone settles
-  it.
+  region afterward, after CellTune's export, rather than pretending the marker
+  alone settles it.
 
 ---
 
@@ -127,4 +127,8 @@ one row per cell, with its predicted type.
 
 ---
 
-Next: [10. Spatial analysis and comparing groups](10-spatial-and-features.md)
+This is where the guide ends: you have CellTune's prediction for every cell
+on the slide. Analysis after that (regions, spatial statistics, group
+comparisons, figures) is not covered here.
+
+Next: [10. Changing things](10-changing-things.md)

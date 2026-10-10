@@ -22,10 +22,10 @@ results/<your-slide>/02_segment/celltune/<your-slide>_segmentation_labels.tif
 ```
 
 — every cell filled with its own number, background 0 — plus, if you follow
-the whole guide: a set of ROIs cut for labelling, a trained CellTune classifier
-applied to every cell on the slide, and one feature row per sample ready for
-an honest group comparison. Pages 1–6 get you the label image; 7–10 are
-everything after it.
+the whole guide: a set of ROIs cut for labelling, and a trained CellTune
+classifier applied to every cell on the slide, exported as one table with a
+cell type for every cell. Pages 1–6 get you the label image; 7–9 take it
+through CellTune.
 
 ---
 
@@ -42,9 +42,8 @@ everything after it.
 | 7 | [Choosing and cutting ROIs](docs/07-choosing-rois.md) | Why ROIs, the rule for picking them, cutting them for CellTune |
 | 8 | [Loading into CellTune](docs/08-into-celltune.md) | ROI folders or one whole slide, what to point CellTune at |
 | 9 | [Training CellTune's classifier](docs/09-celltune-training.md) | What CellTune does, the two tables you write, the labelling cycle |
-| 10 | [Spatial analysis and comparing groups](docs/10-spatial-and-features.md) | H&E regions, enrichment, a feature table, honest statistics |
-| 11 | [Changing things](docs/11-changing-things.md) | Different slide, different folder, different settings |
-| 12 | [When it goes wrong](docs/12-troubleshooting.md) | Real errors, what they mean, what to do |
+| 10 | [Changing things](docs/10-changing-things.md) | Different slide, different folder, different settings |
+| 11 | [When it goes wrong](docs/11-troubleshooting.md) | Real errors, what they mean, what to do |
 
 ---
 
@@ -86,35 +85,31 @@ scripts/       the pipeline itself (Python)
   01_image_qc.py            per-channel quality checks, tissue mask
   02_segment.py             segmentation, and the CellTune export
   make_rois.py              choose and cut ROIs for CellTune labelling
-  celltune_regions.py       H&E regions -> a column on every cell
-  celltune_spatial.py       join CellTune's cell types to those regions, enrichment
-  build_sample_features.py one feature row per sample/ROI
-  feature_stats.py          honest group comparison (random intercept per sample)
+  celltune_regions.py       helper for make_rois.py: reads region outlines, finds cell centres
   akoyalib/                 shared helper code
 pipeline/      SLURM job scripts (how to run on the cluster)
 panels/        marker panel template, CellTune marker-table template
 samples/       example samples.csv
 environment-cellsam.yml   the software environment
-docs/          the twelve pages above
+docs/          the eleven pages above
 ```
 
 ## Method credits
 
 Segmentation uses **CellSAM** (Israel, Marks et al., *Nature Methods* 2025) for
 whole cells and **StarDist** (Schmidt et al., MICCAI 2018) for nuclei. Cell
-typing uses **CellTune** (Bussi et al., *Nature Methods* 2026); the feature
-families in page 10 follow Liu, Calvet-Mirabent et al. (Angelo lab, HIV lymph
-nodes, 2026), generalised. This repository is the wrapper that runs all of it
+typing uses **CellTune** (Bussi et al., *Nature Methods* 2026). This repository is the wrapper that runs all of it
 on whole slides and ties the pieces together.
 
 ## Scope
 
-Pages 1–6: from a raw slide to a CellTune-ready segmentation. Pages 7–10:
-choosing ROIs, loading and training CellTune, and basic spatial analysis /
-group comparisons on its output.
+Pages 1–6: from a raw slide to a CellTune-ready segmentation. Pages 7–9:
+choosing ROIs, loading and training CellTune, and exporting its per-cell
+predictions. The guide ends there.
 
-**Not covered:** registering an H&E section onto the slide (VALIS is linked
-from page 10, but using it is not walked through here), designing your own
+**Not covered:** anything after CellTune's export (spatial analysis, group
+comparisons, figures), registering an H&E section onto the slide (VALIS,
+github.com/MathOnco/valis, is one tool for it), designing your own
 cell-type table (a scientific call only you can make — page 9 explains the
 format, not the biology), and the earlier marker-quantification/normalisation
 pipeline (`03_quantify.py`/`04_normalize.py`), which predates CellTune and

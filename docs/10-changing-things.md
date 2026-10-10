@@ -173,4 +173,4 @@ a warning.
 
 ---
 
-Next: [12. When it goes wrong](12-troubleshooting.md)
+Next: [11. When it goes wrong](11-troubleshooting.md)

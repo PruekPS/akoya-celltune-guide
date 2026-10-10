@@ -94,7 +94,7 @@ that catches this before you submit.
 ## `missing stage 00_ingest for <sample>`
 
 Stage 02 cannot find stages 00/01. Either they have not run, or you gave a
-different output folder. They must match — see page 11.
+different output folder. They must match — see page 10.
 
 ```bash
 ls results/<your-sample-id>/

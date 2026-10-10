@@ -24,7 +24,7 @@ pipeline/sbatch_mail.sh --account=<GROUP> --qos=<GROUP> \
     pipeline/run_stage_02.slurm samples/my_slide.csv results
 ```
 
-`--partition` must be one of your cluster's GPU partitions (page 11 shows how to
+`--partition` must be one of your cluster's GPU partitions (page 10 shows how to
 list them). The script sees the GPU and switches CellSAM to it by itself.
 
 Several slides in one samples sheet run one after another in the same job. To
