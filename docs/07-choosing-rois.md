@@ -213,6 +213,37 @@ Run it until it ends with `no problems`, then crop with
 were stained with the same panel, checking one slide is enough — but if any
 slide was scanned with a different channel list, check that one too.
 
+### Several slides into one project
+
+Crop one slide per run, all into the **same** `--out` folder — that is how one
+CellTune project collects ROIs from every slide. Each run updates `roi_map.csv`
+and `cut_cells.csv` for **its own slide only** and keeps every other slide's
+rows, so the two files always cover the whole project.
+
+**Run the crops one after another, not at the same time.** Two crops writing
+the same folder at once can each overwrite the other's update. A loop that
+chains them, each starting when the previous one ends:
+
+```bash
+J=""
+for s in $(cut -d, -f1 samples/my_slide.csv | tail -n +2); do
+  J=$(pipeline/sbatch_mail.sh --account=<GROUP> --qos=<GROUP> --job-name=akoya_crop_$s \
+      ${J:+--dependency=afterany:$J} \
+      pipeline/run_make_rois.slurm crop results $s \
+      --out CellTune_Data/<PROJECT>/Images \
+      --marker-map panels/celltune_markers_<your-panel>.csv)
+  echo "$s -> job $J"
+done
+```
+
+`afterany` means the next slide starts even if one fails, so one bad slide does
+not stop the rest; check each job's email.
+
+**Re-cropping a slide** (after a new `propose`) replaces that slide's rows. If
+the new proposal has fewer ROIs than the old one, the old extra folders stay
+on disk, and the log prints a `WARNING` naming them — delete those folders so
+CellTune does not load them.
+
 **Cells in `cut_cells.csv` are cells the crop sliced in half at an ROI edge.**
 Their signal is incomplete — exclude them when you sample cells to label, and
 leave them out of any table you build from the labels later.

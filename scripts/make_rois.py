@@ -232,6 +232,32 @@ def crop_one(handle, labels, roi, out_dir, channel_names, region_geo=None, prior
     return lab
 
 
+def write_summaries(out, all_rois, new_map, new_cut):
+    """Update roi_map.csv and cut_cells.csv for this slide only, keeping every other slide's rows.
+
+    One CellTune project pools ROIs from many slides, cropped one slide per run into the same folder,
+    so overwriting these files would leave only the last slide's rows. This slide's old rows are
+    replaced; rows for ROIs still in the proposal but not cropped this run (--role) are kept. Runs
+    are not safe in parallel: crop slides into one folder one at a time.
+    """
+    samples = set(all_rois["sample_id"])
+    keep_old = set(all_rois["roi_id"]) - set(new_map["image"])
+    p_map, p_cut = out / "roi_map.csv", out / "cut_cells.csv"
+    old_map = pd.read_csv(p_map) if p_map.exists() else pd.DataFrame(columns=new_map.columns)
+    old_cut = pd.read_csv(p_cut) if p_cut.exists() else pd.DataFrame(columns=["image", "cellID"])
+    mine = old_map["sample_id"].isin(samples)
+    old_mine = set(old_map.loc[mine, "image"])
+    stale = sorted(i for i in old_mine - set(all_rois["roi_id"]) if (out / i).is_dir())
+    if stale:
+        print(f"WARNING: folders from an earlier proposal for this slide are still in {out}: {', '.join(stale)}. "
+              "They are no longer in roi_map.csv; delete them so CellTune does not load them.")
+    old_map = old_map[~mine | old_map["image"].isin(keep_old)]
+    old_cut = old_cut[~old_cut["image"].isin((old_mine | set(new_map["image"])) - keep_old)]
+    stack = lambda *dfs: pd.concat([d for d in dfs if len(d)]) if any(len(d) for d in dfs) else dfs[-1]
+    stack(old_map, new_map).sort_values("image").to_csv(p_map, index=False)
+    stack(old_cut, new_cut).sort_values(["image", "cellID"]).to_csv(p_cut, index=False)
+
+
 def cmd_crop(a):
     from akoyalib.imageio import ImageHandle
     h = ImageHandle(a.image, pixel_size_um=a.px_um)
@@ -247,9 +273,11 @@ def cmd_crop(a):
     labels = cr.open_labels(a.labels)
     if tuple(labels.shape) != tuple(h.level_shape(0)[1:]):
         sys.exit(f"label image {tuple(labels.shape)} and slide {tuple(h.level_shape(0)[1:])} differ in size")
-    rois = pd.read_csv(a.rois)
+    rois = all_rois = pd.read_csv(a.rois)
     if a.role != "all":
         rois = rois[rois["role"] == a.role]
+    if rois.empty:
+        sys.exit(f"no ROIs to crop in {a.rois} (--role {a.role})")
     geo = priority = None
     if a.regions:
         geo = cr.load_regions(a.regions)
@@ -265,8 +293,8 @@ def cmd_crop(a):
         rows.append({"image": roi["roi_id"], "sample_id": roi["sample_id"], "x0": int(roi["x0"]),
                      "y0": int(roi["y0"]), "px_um": h.pixel_size_um, "n_cells": int(len(ids)),
                      "n_cut_cells": int(len(cut)), "role": roi["role"], "stratum": roi["stratum"]})
-    pd.DataFrame(rows).to_csv(pathlib.Path(a.out) / "roi_map.csv", index=False)
-    pd.DataFrame(border_rows, columns=["image", "cellID"]).to_csv(pathlib.Path(a.out) / "cut_cells.csv", index=False)
+    write_summaries(pathlib.Path(a.out), all_rois, pd.DataFrame(rows),
+                    pd.DataFrame(border_rows, columns=["image", "cellID"]))
     print(f"cropped {len(rows)} ROIs x {len(names)} channels into {a.out}")
     print("roi_map.csv holds each ROI's offset; cut_cells.csv lists cells the crop edge slices through "
           "(exclude them from labelling and from the training table).")
