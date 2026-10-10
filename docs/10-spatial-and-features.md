@@ -100,10 +100,9 @@ python scripts/build_sample_features.py \
 
 `--group` and `--ratio` take **cell-type names exactly as they appear in
 your CellTune export** (for example `CD8_Tcell`), joined with `+` — not
-marker names, and no commas. A name that matches no cell type is not an
-error: it silently counts zero cells, so the group comes out as 0 and the
-ratio as `NaN`. Check the spelling against `cell_types_final.csv`. A
-`--ratio` side may also use a `--group` name.
+marker names, and no commas. A name that is not a cell type stops the run
+with a list of the real cell types, so a typo cannot quietly turn into a
+group of 0 cells. A `--ratio` side may also use a `--group` name.
 
 `--meta` is a CSV you write: `sample_id`, `px_um`, and whatever grouping
 column you intend to compare on (e.g. `group`). Pass `--rois` (the CSV from
@@ -122,8 +121,13 @@ step 4 before doing that.
 | Enrichment | `--enrichment` | pairs of types nearer each other than chance (slow) |
 | Functional markers | `--markers`, `--pairs` | mean / fraction-positive within chosen types |
 
-A type with fewer than `--min-type-cells` (default 10) in a unit gets `NaN`
-for its features there, never a silent `0`.
+A type that is absent from a slide (or ROI) gets density and proportion
+**0** there: zero cells is a real measurement, and leaving it blank would drop
+that slide from step 4. What stays `NaN` (blank) is what cannot be measured: a
+density in a region the slide does not contain, a distance or diversity
+around a type that is absent, a ratio with a zero denominator, and
+neighbour-based features of a type with fewer than `--min-type-cells`
+(default 10) cells in that unit.
 
 ---
 
@@ -131,8 +135,13 @@ for its features there, never a silent `0`.
 
 ```bash
 python scripts/feature_stats.py \
-    --features features.csv --group-col group --out stats.csv
+    --features features.csv --group-col group --ref-group <your control group> --out stats.csv
 ```
+
+`--ref-group` names the reference: every `estimate` is the other group minus
+this one. Without it, the alphabetically first group is the reference (with
+`WT` and `KO` that is `KO`, which flips every sign), and the script prints
+which one it used.
 
 **The unit of replication is the animal or slide, never the ROI and never the
 cell.** Ten ROIs from one slide are ten looks at one biological sample, not
@@ -148,8 +157,11 @@ Guardrails it enforces rather than leaving to you to remember:
   animals per group is a real effect size, not a valid test.
 - If every sample contributes exactly one row, a random intercept cannot be
   fit, so it falls back to a rank test (Mann-Whitney) on samples.
-- If the mixed model does not converge, it falls back the same way and the
-  `method` column says so — nothing fails silently.
+- If the mixed model gives any warning (it did not converge, or the
+  animal-to-animal spread came out as zero, which is common), it falls back
+  to Student's t-test on the per-animal averages with (animals − 2) degrees
+  of freedom — the same test the model makes when every animal has the same
+  number of ROIs — and the `method` column says so. Nothing fails silently.
 
 Needs `statsmodels`, which is not in `environment-cellsam.yml`:
 

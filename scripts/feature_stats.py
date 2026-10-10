@@ -16,8 +16,12 @@ Rules it enforces so a table of p-values cannot overstate what the data support:
     ("descriptive only"): with 2 vs 2 animals there is no valid test, only an effect size
   * a unit is one row; if every sample has exactly one row it falls back to a rank test
     on samples (Mann-Whitney), because a random intercept is unidentifiable then
-  * if the mixed model does not converge it falls back to a rank test on per-sample means,
-    and says so in the `method` column
+  * if the mixed model gives any warning (did not converge, or the animal-to-animal spread came out as 0)
+    it falls back to Student's t-test on the per-animal means with (animals - 2) degrees of freedom, and
+    says so in the `method` column. For equal ROIs per animal that is the test the random-intercept model
+    makes, and unlike a rank test it is not floored at p = 0.10 (3 v 3) or 0.029 (4 v 4)
+  * the reference group is --ref-group, or the alphabetically first group (printed, because with WT and
+    KO that makes KO the reference and flips every sign)
 
 Needs statsmodels. Status: validated on synthetic data only (tests/test_feature_stats.py),
 including a demonstration that testing ROIs as independent samples is anti-conservative and that
@@ -40,13 +44,18 @@ from akoyalib.spatial import benjamini_hochberg        # noqa: E402
 META_COLS = {"unit_id", "sample_id", "n_cells", "area_mm2"}
 
 
-def fit_one(df, feature, group_col, sample_col, min_samples):
+def fit_one(df, feature, group_col, sample_col, min_samples, ref_group=None):
     d = df[[feature, group_col, sample_col]].replace([np.inf, -np.inf], np.nan).dropna()
+    d[group_col] = d[group_col].astype(str)
     groups = sorted(d[group_col].unique())
     res = {"feature": feature, "n_rows": len(d)}
+    if ref_group is not None and ref_group not in set(df[group_col].astype(str)):
+        sys.exit(f"--ref-group {ref_group!r} is not a value of {group_col!r}: {sorted(set(df[group_col].astype(str)))}")
     if len(groups) != 2:
         res.update(method="needs_two_groups", p=np.nan)
         return res
+    if ref_group is not None:
+        groups = [ref_group] + [g for g in groups if g != ref_group]
     g0, g1 = groups
     ns = d.groupby(group_col)[sample_col].nunique()
     res.update(group_ref=g0, group_test=g1, n_samples_ref=int(ns.get(g0, 0)), n_samples_test=int(ns.get(g1, 0)))
@@ -77,15 +86,18 @@ def fit_one(df, feature, group_col, sample_col, min_samples):
         res.update(method="mixed_model", estimate=est, se=se, df=df_between,
                    p=float(2 * stats.t.sf(abs(est / se), df_between)))
     except Exception as e:                                 # singular fit, non-convergence, missing statsmodels
-        res.update(method=f"mann_whitney_on_sample_means(mixed model failed: {type(e).__name__})",
-                   p=float(stats.mannwhitneyu(a, b, alternative="two-sided").pvalue))
+        # Student's t on per-animal means, (animals - 2) df: for equal ROIs per animal the same test the
+        # random-intercept model makes, and it cannot fail to fit
+        t = stats.ttest_ind(b, a)
+        res.update(method=f"t_test_on_sample_means(mixed model failed: {type(e).__name__})",
+                   estimate=float(b.mean() - a.mean()), df=len(a) + len(b) - 2, p=float(t.pvalue))
     return res
 
 
-def run(df, group_col, sample_col, min_samples, features=None):
+def run(df, group_col, sample_col, min_samples, features=None, ref_group=None):
     feats = features or [c for c in df.columns if c not in META_COLS | {group_col, sample_col}
                          and pd.api.types.is_numeric_dtype(df[c])]
-    out = pd.DataFrame([fit_one(df, f, group_col, sample_col, min_samples) for f in feats])
+    out = pd.DataFrame([fit_one(df, f, group_col, sample_col, min_samples, ref_group) for f in feats])
     out["q_bh"] = benjamini_hochberg(out["p"].to_numpy(float))
     return out.sort_values("p")
 
@@ -96,10 +108,16 @@ def main(argv=None):
     ap.add_argument("--group-col", required=True)
     ap.add_argument("--sample-col", default="sample_id")
     ap.add_argument("--min-samples", type=int, default=3)
+    ap.add_argument("--ref-group", default=None,
+                    help="the reference group (estimate = other minus this). Default: alphabetically first")
     ap.add_argument("--out", required=True)
     a = ap.parse_args(argv)
     df = pd.read_csv(a.features)
-    out = run(df, a.group_col, a.sample_col, a.min_samples)
+    if a.ref_group is None:
+        g = sorted(df[a.group_col].dropna().astype(str).unique())
+        print(f"NOTE: no --ref-group given; reference = {g[0]!r} (alphabetical), so estimate = "
+              f"{g[-1]!r} minus {g[0]!r}" if len(g) == 2 else f"NOTE: groups found: {g}")
+    out = run(df, a.group_col, a.sample_col, a.min_samples, ref_group=a.ref_group)
     out.to_csv(a.out, index=False)
     m = out["method"].value_counts()
     print(f"{len(out)} features -> {a.out}")

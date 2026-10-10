@@ -19,7 +19,12 @@ it depends on one tissue or panel:
 
 Choices worth knowing about, because they change numbers:
   * Area is the area of occupied 50 um bins, not a tissue mask. Pass --area-bin-um to change it.
-  * A type with fewer than --min-type-cells in a unit gets NaN for its per-type features, never 0.
+  * A type absent from a unit gets density and proportion 0 there (a real measurement). Features that
+    need the type to be present (distances, diversity) stay NaN, as does a density in a region the unit
+    does not contain.
+  * A type with fewer than --min-type-cells in a unit gets NaN for its neighbour-based features.
+  * A --group or --ratio name that is not a cell type (or a --group name) stops the run with a list of
+    the real types, instead of silently counting 0 cells.
   * A ratio with a zero denominator is NaN, never infinity and never 0. (The published
     notebook fills these with 0, which makes "no denominator" look like "none of the numerator".)
   * Garbage, Ambiguous and Unclassified cells are left out of every feature.
@@ -83,6 +88,24 @@ def parse_ratio(spec):
     return name.strip(), [t.strip() for t in num.split("+")], [t.strip() for t in den.split("+")]
 
 
+def check_names(group_specs, ratio_specs, all_types):
+    """Stop on a --group/--ratio name that is neither a cell type nor a --group name.
+
+    A typo, or a marker name such as CD3e where a cell type such as CD8_Tcell was meant, would
+    otherwise count as 0 cells: the group comes out as 0 and the ratio as NaN, with no warning.
+    """
+    groups = dict(parse_group(g) for g in group_specs)
+    known = set(all_types)
+    bad = [(f"--group {g}", t) for g, members in groups.items() for t in members if t not in known]
+    for spec in ratio_specs:
+        name, num, den = parse_ratio(spec)
+        bad += [(f"--ratio {name}", t) for t in num + den if t not in known and t not in groups]
+    if bad:
+        lines = "\n".join(f"  {where}: {t!r} is not a cell type" for where, t in bad)
+        sys.exit(f"unknown names (use cell types exactly as in cell_types_final.csv, joined with +):\n{lines}\n"
+                 f"cell types in these files: {', '.join(all_types)}")
+
+
 def neighbour_pass(xy_um, codes, n_types, index_idx, radius_um, chunk=40000, edges=None):
     """Stream over index cells; accumulate what is needed, never hold a cells x types matrix for a slide.
 
@@ -135,8 +158,12 @@ def knn_mean(xy_from, xy_to, k, same):
 
 # -- one unit -----------------------------------------------------------------------------------
 
-def unit_features(cells, px_um, a, markers=None, pairs=None):
-    """cells: one unit's rows with cell_type, x_px, y_px (and optionally region, cellID)."""
+def unit_features(cells, px_um, a, markers=None, pairs=None, all_types=None):
+    """cells: one unit's rows with cell_type, x_px, y_px (and optionally region, cellID).
+
+    `all_types` is every type in the cohort, so a type missing from this unit is reported as 0 cells
+    rather than left out (which would leave a blank in the table and drop the unit from the test).
+    """
     f = {}
     xy = cells[["x_px", "y_px"]].to_numpy(float) * px_um
     types_all = cells["cell_type"].to_numpy()
@@ -146,11 +173,11 @@ def unit_features(cells, px_um, a, markers=None, pairs=None):
     f["area_mm2"] = ar
     counts = pd.Series(types_all).value_counts()
     types = [t for t in sorted(counts.index) if counts[t] >= a.min_type_cells]
-    allt = sorted(counts.index)
+    allt = sorted(set(all_types) | set(counts.index)) if all_types is not None else sorted(counts.index)
 
     for t in allt:
-        f[f"dens__{t}"] = counts[t] / ar if ar > 0 else np.nan
-        f[f"prop__{t}"] = counts[t] / n if n else np.nan
+        f[f"dens__{t}"] = counts.get(t, 0) / ar if ar > 0 else np.nan
+        f[f"prop__{t}"] = counts.get(t, 0) / n if n else np.nan
     groups = dict(parse_group(g) for g in a.group)
     for name, members in groups.items():
         c = int(sum(counts.get(t, 0) for t in members))
@@ -188,7 +215,7 @@ def unit_features(cells, px_um, a, markers=None, pairs=None):
             sh, shn, _, _ = neighbour_pass(xy, codes, nT, idx, a.diversity_um)
             for t in allt:
                 c = codes_map[t]
-                f[f"div__{t}__r{a.diversity_um:g}"] = (sh[c] / shn[c]) if (shn[c] > 0 and counts[t] >= a.min_type_cells) else np.nan
+                f[f"div__{t}__r{a.diversity_um:g}"] = (sh[c] / shn[c]) if (shn[c] > 0 and counts.get(t, 0) >= a.min_type_cells) else np.nan
         if a.ring_index and a.ring_index in codes_map:
             edges = np.arange(0, a.ring_max_um + 1e-9, a.ring_width_um)
             c0 = codes_map[a.ring_index]
@@ -274,6 +301,8 @@ def main(argv=None):
     cells = cells.rename(columns={"image": "sample_id"}) if "image" in cells.columns else cells
     excl = {s.strip() for s in a.exclude.split(",") if s.strip()}
     cells = cells[~cells["cell_type"].isin(excl)].reset_index(drop=True)
+    all_types = sorted(cells["cell_type"].unique())
+    check_names(a.group, a.ratio, all_types)
     rois = pd.read_csv(a.rois) if a.rois else None
     markers = read_any(a.markers) if a.markers else None
     pairs = list(pd.read_csv(a.pairs)[["marker", "cell_type"]].itertuples(index=False, name=None)) if a.pairs else None
@@ -292,7 +321,7 @@ def main(argv=None):
         else:
             units = [(sid, g)]
         for uid, ug in units:
-            feats = unit_features(ug, px, a, mk, pairs)
+            feats = unit_features(ug, px, a, mk, pairs, all_types)
             feats = {"unit_id": uid, "sample_id": sid, **feats}
             rows.append(feats)
     out = pd.DataFrame(rows)

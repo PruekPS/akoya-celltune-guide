@@ -141,7 +141,7 @@ def window_from_cells(xy_px, px_um, bin_px=32, close_um=60.0):
 
 def composition(df, by="region"):
     t = pd.crosstab(df["cell_type"], df[by])
-    frac = t / t.sum(0)
+    frac = t / t.sum(axis=0)
     return t, frac
 
 
