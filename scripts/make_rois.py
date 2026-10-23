@@ -86,7 +86,8 @@ def assign_stratum(frac, focus, interface_min):
 
 def propose(cells, shape_hw, roi_um, px_um, target_cells, regions_raster=None, priority=None,
             downsample=8, focus=None, interface_min=0.25, min_occupancy=0.6, min_cells=300,
-            exclude_raster=None, exclude_max=0.05, validation_frac=0.2, seed=0):
+            exclude_raster=None, exclude_max=0.05, validation_frac=0.2, seed=0, n_rois=None):
+    """n_rois, when given, is the number of ROIs to draw and replaces the target_cells calculation."""
     roi_px = int(round(roi_um / px_um))
     grid = tile_grid(shape_hw, roi_px)
     stats = tile_stats(cells, grid, roi_px)
@@ -122,8 +123,11 @@ def propose(cells, shape_hw, roi_um, px_um, target_cells, regions_raster=None, p
     if elig.empty:
         return elig, elig
 
-    per_roi = float(elig["n_cells"].median())
-    n_total = max(1, int(np.ceil(target_cells / per_roi)))
+    if n_rois is not None:
+        n_total = n_rois
+    else:
+        per_roi = float(elig["n_cells"].median())
+        n_total = max(1, int(np.ceil(target_cells / per_roi)))
     strata = sorted(elig["stratum"].unique())
     # Equal allocation across strata, so a stratum covering 5% of the slide still gets its share
     # (rare tissue contexts are where a classifier is weakest). A stratum with fewer eligible
@@ -171,6 +175,8 @@ def to_geojson(rois, sample_id):
 
 
 def cmd_propose(a):
+    if a.n_rois is not None and a.n_rois < 1:
+        sys.exit(f"--n-rois must be at least 1, not {a.n_rois}")
     pathlib.Path(a.out).parent.mkdir(parents=True, exist_ok=True)  # before the slow part, not after
     labels = cr.open_labels(a.labels)
     cells = cr.centroids_from_labels(labels)
@@ -185,9 +191,12 @@ def cmd_propose(a):
                             labels.shape, a.downsample, ["Exclude"])
     sel, elig = propose(cells, labels.shape, a.roi_um, a.px_um, a.target_cells, raster, priority,
                         a.downsample, a.focus, a.interface_min, a.min_occupancy, a.min_cells, excl,
-                        a.exclude_max, a.validation_frac, a.seed)
+                        a.exclude_max, a.validation_frac, a.seed, a.n_rois)
     if sel.empty:
         sys.exit("no eligible ROIs: lower --min-occupancy / --min-cells, or check --px-um")
+    if a.n_rois is not None and len(sel) < a.n_rois:
+        print(f"WARNING: asked for {a.n_rois} ROIs but only {len(elig)} tiles pass the criteria; took all {len(sel)}. "
+              "The criteria were not loosened: lower --min-occupancy / --min-cells / --roi-um yourself if you want more.")
     sel.insert(0, "roi_id", [f"{a.sample_id}_R{i + 1:02d}" for i in range(len(sel))])
     sel.insert(0, "sample_id", a.sample_id)
     sel.to_csv(a.out, index=False)
@@ -308,7 +317,10 @@ def main(argv=None):
     p.add_argument("--sample-id", required=True)
     p.add_argument("--px-um", type=float, required=True)
     p.add_argument("--roi-um", type=float, default=500.0, help="ROI side in um (default 500, about a MIBI-TOF field)")
-    p.add_argument("--target-cells", type=int, default=30000, help="cells to label-pool per slide (default 30,000)")
+    n = p.add_mutually_exclusive_group()
+    n.add_argument("--target-cells", type=int, default=30000, help="cells to label-pool per slide (default 30,000)")
+    n.add_argument("--n-rois", type=int, default=None,
+                   help="number of ROIs per slide, instead of --target-cells; every other criterion is unchanged")
     p.add_argument("--regions", default=None, help="regions GeoJSON in slide pixel coordinates (from VALIS); enables strata")
     p.add_argument("--priority", default=None, help="comma list of region classes, lowest priority first")
     p.add_argument("--focus", default=None, help="region class whose edge defines the `interface` stratum, e.g. Tumor")
